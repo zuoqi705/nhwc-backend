@@ -385,6 +385,9 @@ io.on('connection', socket => {
         })
 
         io.in(roomId).emit('end', rankList);
+        //将startedRooms中对应房间设为false
+        startedRooms[roomId] = false;
+
       } else {
         gameData.roundIndex++;
         gameData.drawerIndex = (gameData.drawerIndex + 1) % gameSeats.length;
@@ -457,6 +460,13 @@ io.on('connection', socket => {
     wait(startRound(roomId), 11000);
   })
 });
+
+
+app.get('/getRooms', function (req, res) {
+  console.log('getRooms');
+  res.send(rooms);
+  return;
+})
 
 app.get('/start', function (req, res) {
   let roomId = req.query.roomId;
