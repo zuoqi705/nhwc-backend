@@ -9,17 +9,17 @@ fs.readFile('words.txt', function (err, data) {
     return console.error(err)
   }
   words = data.toString().split('\n');
-  
+
 })
 // 设置静态文件夹，会默认找当前目录下的index.html文件当做访问的页面
 app.use(express.static(__dirname));
 
 //设置跨域访问
-app.all('*', function(req, res, next) {
+app.all('*', function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "X-Requested-With");
-  res.header("Access-Control-Allow-Methods","PUT,POST,GET,DELETE,OPTIONS");
-  res.header("X-Powered-By",' 3.2.1')
+  res.header("Access-Control-Allow-Methods", "PUT,POST,GET,DELETE,OPTIONS");
+  res.header("X-Powered-By", ' 3.2.1')
   res.header("Content-Type", "application/json;charset=utf-8");
   next();
 });
@@ -33,6 +33,7 @@ var users = []; //存储所有用户
 var userNames = {}; //存储每个uid对应的username
 var socketRooms = {}; //存储每个socketId对应的room
 var rooms = []; //存储所有房间信息
+var roomIds = []; //存储所有房间的roomId
 var gameDatas = {}; //存储每个房间的gameData
 var gameSeatsData = {}; //存储每个房间的gameSeats
 var startedRooms = {}; //储存已经开局的房间
@@ -46,6 +47,13 @@ io.on('connection', socket => {
         uid: uid,
         username: `user${uid}`,
         roomId: uuidv1().split('-')[0],
+        joinRoomId: '',
+        /*
+        0: 没加入房间
+        1：已加入房间但是没开始游戏
+        2：已经开始游戏
+        */
+        state: 0,
       }
       users.push(userInfo);
       userNames[uid] = userInfo.username;
@@ -111,8 +119,12 @@ io.on('connection', socket => {
     roomData.ownername = msg.username;
     roomData.uid = msg.uid;
     roomData.players.push(msg);
+
+    //存储room信息
     rooms.push(roomData);
+    roomIds.push(roomData.roomId);
     socketRooms[socket.id] = roomData.roomId;
+
     // console.log(socketRooms);
     socket.join(msg.roomId, () => {
       // console.log('rooms:', rooms);
@@ -448,17 +460,62 @@ io.on('connection', socket => {
 
 app.get('/start', function (req, res) {
   let roomId = req.query.roomId;
-  console.log('req.query', req);
   console.log('roomId', roomId);
   if (startedRooms[roomId]) {
     res.send(true);
+    return;
   } else {
     res.send(false);
+    return;
   }
 })
 
-app.post('/adduser', function (req, res) {
-  
+app.get('/adduser', function (req, res) {
+  let username = req.query.username;
+	// console.log("​username", username)
+  let socketId = req.query.socketId;
+	// console.log("​socketId", socketId)
+  let joinRoomId = req.query.joinRoomId;
+	// console.log("​joinRoomId", joinRoomId)
+
+  if (Object.values(userNames).includes(username)) {
+    res.send(false); //用户名已存在
+    console.log('用户名已存在！')
+    return;
+  } else {
+    var userInfo = {
+      socketId: socketId,
+      uid: uid,
+      username: username,
+      roomId: uuidv1().split('-')[0],
+      joinRoomId: '',
+      state: 0,
+    }
+		// // console.log("​userInfo", userInfo)
+    users.push(userInfo);
+    userNames[uid] = username;
+    uid++;
+  }
+
+  if (!roomIds.includes(joinRoomId)) {
+    res.send({ 
+      state:1, //该房间不存在
+      userInfo: userInfo
+    }) 
+    return;
+  } else if (startedRooms[joinRoomId]) {
+    res.send({
+      state: 2, //该房间已经开始游戏
+      userInfo: userInfo
+    }) 
+    return;
+  } else {
+    res.send({
+      state: 3, //可以进入该房间
+      userInfo: userInfo
+    }) 
+    return;
+  }
 })
 
 
